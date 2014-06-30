@@ -4,6 +4,9 @@ library(reshape2)
 library(plyr)
 library(scales)
 library(stringr)
+library(gplots)
+library(RColorBrewer)
+library(gridExtra)
 
 # in hmp1.v13.hq.otu.counts, remove colname collection and add a new col name to the end (276...)
 # the result is .header
@@ -50,7 +53,17 @@ print(any(rowSum.occurences==0))
 sites.df = ddply(occurences, .(HMPBodySite), summarize, n=length(HMPBodySite))
 qplot(x=HMPBodySite, y=n, data=sites.df, geom="bar", stat="identity") + 
   theme_bw() + labs(x="Body site", y="# Samples")
-ggsave("body site samples distribution.png")
+ggsave("body site samples distribution.png", width=6, height=4)
+
+ppl.df = ddply(occurences, .(RSID), summarize, n=length(RSID), Sex=unique(Sex)[1], bodysites=length(unique(HMPBodySubsite)), bodysubsites=length(unique(HMPBodySubsite)))
+print(paste("Males:",sum(ppl.df$Sex=='male')))
+print(paste("Females:",sum(ppl.df$Sex=='female')))
+qplot(x=n, data=ppl.df) +
+  theme_bw() + labs(x="# Samples per person", y="Count")
+ggsave("body site samples distribution per person.png")
+qplot(x=bodysites, data=ppl.df) +
+  theme_bw() + labs(x="# Body sites sampled per person", y="Count")
+ggsave("body site samples distribution per person.png")
 
 # richness
 occurences$richness = apply(X=occurences[,species.cols]>0, MARGIN=1, FUN=sum)
@@ -120,32 +133,50 @@ png("beta diversity by body sub sites.png")
 plot(mod, cex=0.5)
 dev.off() 
 
-## TODO check beta div with less weight on rare species (bray curtis for example)
 ## j and sor are similar, with different weights
 ## z and w  are similar, and are roghly the negative of sor
 ## z 
 betadiver(help=T)
+
 w = betadiver(occurences[, species.cols], "w")
 w = betadisper(w, occurences$HMPBodySite)
-png("beta diversity w - body site.png")
-boxplot(w, main="Whitaker Beta Diversity")
-dev.off()
+boxplot(w, main="Whitaker (w) Beta Diversity")
+
 #z = betadiver(occurences[, species.cols], "z")
 #boxplot(betadisper(z, occurences$HMPBodySite), main="Z Beta Diversity")
+
 j = betadiver(occurences[, species.cols], "j")
 j = betadisper(j, occurences$HMPBodySite)
-png("beta diversity j - body site.png")
-boxplot(j, main="Jaccard Beta Diversity")
-dev.off()
-#sor = betadiver(occurences[, species.cols], "sor")
-#boxplot(betadisper(sor, occurences$HMPBodySite), main="Sorrenson Beta Diversity")
+boxplot(j, main="Jaccard (j) Beta Diversity")
+
+sor = betadiver(occurences[, species.cols], "sor")
+sor = betadisper(sor, occurences$HMPBodySite)
+boxplot(j, main="Sørensen (sor) Beta Diversity")
+
 r = betadiver(occurences[, species.cols], "r")
 r = betadisper(r, occurences$HMPBodySite)
-png("beta diversity r - body site.png")
-boxplot(r, main="Routledge Beta Diversity")
+boxplot(r, main="Routledge (r) Beta Diversity")
+
+sim = betadiver(occurences[, species.cols], "sim")
+sim = betadisper(sim, occurences$HMPBodySite)
+boxplot(r, main="Simpson (sim) Beta Diversity")
+
+gl = betadiver(occurences[, species.cols], "gl")
+gl = betadisper(gl, occurences$HMPBodySite)
+boxplot(r, main="Lennon (gl) Beta Diversity")
+
+
+png("beta diversity 3 indx - body site.png", units="in", width=5, height=12, res=300)
+def.par <- par(mfrow = c( 3,1 ))
+cex.axis = 0.95
+#boxplot(w, main="Whitaker", cex.axis=cex.axis)
+boxplot(j, main="Jaccard", cex.axis=cex.axis)
+#boxplot(sor, main="Sørensen", cex.axis=cex.axis)
+#boxplot(r, main="Routledge", cex.axis=cex.axis)
+boxplot(sim, main="Simpson", cex.axis=cex.axis)
+boxplot(gl, main="Lennon", cex.axis=cex.axis)
+par(def.par)
 dev.off()
-#sim = betadiver(occurences[, species.cols], "sim")
-#boxplot(betadisper(sim, occurences$HMPBodySite), main="Simpson Beta Diversity")
 
 
 # nMDS
@@ -159,24 +190,30 @@ plot(mds)
 ## sites
 sites.df = cbind(occurences[,1:17], mds$points)
 qplot(x=MDS1, y=MDS2, data=sites.df, color=HMPBodySite, size=I(3), shape=Sex) + 
-  scale_color_brewer(name="Body Site", palette="Set1") + theme_bw() + ggtitle("Sites ordination") #facet_grid(.~Sex) +
-ggsave("site ordination.png")
+  scale_color_brewer(name="Body Site", palette="Set1") + theme_bw()# + ggtitle("Sites ordination") #facet_grid(.~Sex) +
+ggsave("site ordination.png", height=6, width=8)
 
 ## species
 ### all
 otus = as.numeric(lapply(names(occurences)[species.cols], function(x) {str_sub(x,2)}))
 species.df = cbind(lookup[otus,], data.frame(mds$species))
 species.df$frequency = colSums(occurences[,species.cols])/sum(occurences[,species.cols])
-qplot(x=MDS1, y=MDS2, data=species.df, alpha=frequency) + 
-  theme_bw() + ggtitle("Species ordination") + scale_alpha_continuous(name="Frequency")
-ggsave("species ordination.png")
+q1 = qplot(x=MDS1, y=MDS2, data=species.df, alpha=frequency) + 
+  theme_bw() + theme(legend.position="top") + scale_alpha_continuous(name="Frequency") # + ggtitle("Species ordination")
+q1
+ggsave("species ordination.png", q1)
 
 ### frequent kingdoms
 kingdom.df = ddply(species.df, .(kingdom), summarise, frequency=sum(frequency))
 freq.kingdoms = subset(kingdom.df, frequency > 0.0025)$kingdom
-qplot(x=MDS1, y=MDS2, data=subset(species.df, kingdom %in% freq.kingdoms), color=kingdom) +
-  scale_color_brewer(name="Kingdom", palette="Set1") + theme_bw() + ggtitle("Species ordination (frequent kingdoms)")
-ggsave("species ordination - frequent kingdoms.png")
+q2 = qplot(x=MDS1, y=MDS2, data=subset(species.df, kingdom %in% freq.kingdoms), color=kingdom) +
+  scale_color_brewer(name="Kingdom", palette="Set1") + theme_bw() + theme(legend.position="top") #+ ggtitle("Species ordination (frequent kingdoms)")
+q2
+ggsave("species ordination - frequent kingdoms.png", q2)
+
+png("species ordination - 2 panels.png", units="in", width=7, height=14, res=300)
+grid.arrange(q1, q2, nrow=2)
+dev.off()
 
 qplot(x=kingdom, y=-log10(frequency), data=kingdom.df, geom="bar", stat="identity") + 
   theme(axis.text.x = element_text(size=12, angle = 45, hjust = 1))
@@ -199,4 +236,17 @@ cor.mat = cor(t(occurences[bodysite.order, species.cols]), method="spearman")
 cor.mat[upper.tri(cor.mat )] <- NA
 print(dim(cor.mat))
 # http://sebastianraschka.com/Articles/heatmaps_in_r.html
+png("cooccurence.png")
 heatmap.2(cor.mat)
+dev.off()
+
+#bodysite.order = order(occurences$HMPBodySite, occurences$HMPBodySubsite)
+family.names = lookup[species.cols-16,]$family
+kingdom.names = lookup[species.cols-16,]$kingdom
+king.order = order(kingdom.names)
+cor.mat = cor(occurences[occurences$HMPBodySite=="Airways", species.cols[king.order]], method="spearman")
+cor.mat[upper.tri(cor.mat )] <- NA
+print(dim(cor.mat))
+cex=0.5
+heatmap.2(cor.mat, dendrogram='none', key=F, keysize=0, 
+          labRow=kingdom.names, labCol=kingdom.names, cexRow=cex, cexCol=cex)
