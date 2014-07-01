@@ -258,3 +258,50 @@ color.legend(xl=-150,xr=-50, yb=ncol(cor.mat)/4, yt=ncol(cor.mat)*3/4,
 
 dev.off()
 
+## oral sites
+# reload the data, because I previously removed empty columns and I need them back..
+occurences = read.csv(file="hmp1.v13.hq.otu.counts.may1", header=T, sep="\t", quote="")
+occurences = occurences[1:2799,1:27655]
+print(dim(occurences))
+
+# filter columns (species) - remove unclassified and uncounted
+lookup = read.csv(file="hmp1.v13.hq.otu.lookup.split", sep="\t")
+lookup.classified = subset(lookup, lookup$genus!='unclassified')
+occurences <- occurences[,lookup.classified$otu]
+print(dim(occurences))
+
+# add row (sample) metadata
+map = read.csv(file="ppAll_V13_map.no_unavail.txt", sep="\t", row.names = NULL)
+map <- map[!duplicated(map$NAP),]
+print(dim(occurences))
+print(dim(map))
+occurences <- merge(map, occurences, by.x="NAP", by.y=0, all.x=F, all.y=F)
+print(dim(occurences))
+species.cols = seq(from=17,to=dim(occurences)[2])
+colSum.occurences = colSums(occurences[,species.cols])
+print(any(colSum.occurences==0))
+rowSum.occurences = rowSums(occurences[,species.cols])
+print(any(rowSum.occurences==0))
+
+lookup.strep = subset(lookup.classified, genus=="Streptococcus")
+lookup.no.strep = subset(lookup.classified, genus!="Streptococcus")
+strep.cols = as.character(lapply(lookup.strep$otu, function(x) {paste0("X",x)}))
+no.strep.cols = as.character(lapply(lookup.no.strep$otu, function(x) {paste0("X",x)}))
+bodysite.order = order(occurences$HMPBodySite, occurences$HMPBodySubsite)
+occurences = occurences[bodysite.order,17:ncol(occurences)]
+strep.occur = subset(occurences, select=strep.cols)
+no.strep.occur = subset(occurences, select=no.strep.cols)
+
+cor.mat=cor(t(occurences), method="spearman")
+strep.cor.mat = cor(t(strep.occur), method="spearman")
+no.strep.cor.mat = cor(t(no.strep.occur), method="spearman")
+
+png("cooccurence - strep.png", units="in", width=12, height=4, res=300)
+def.par <- par(mfrow = c( 1,3 ))
+
+image(x=1:ncol(cor.mat), y=1:ncol(cor.mat), z=cor.mat, axes=F, xlab="", ylab="", main="All")
+image(x=1:ncol(strep.cor.mat), y=1:ncol(strep.cor.mat), z=strep.cor.mat, axes=F, xlab="", ylab="", main="Strep")
+image(x=1:ncol(no.strep.cor.mat), y=1:ncol(no.strep.cor.mat), z=no.strep.cor.mat, axes=F, xlab="", ylab="", main="No strep")
+
+par(def.par)
+dev.off()
