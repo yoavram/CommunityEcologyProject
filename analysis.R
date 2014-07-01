@@ -231,36 +231,27 @@ plot(nest, kind="incid")
 dev.off()
 
 ## co-occurence
-bodysite.order = order(occurences$HMPBodySite, occurences$HMPBodySubsite)
-cor.mat = cor(t(occurences[bodysite.order, species.cols]), method="spearman")
+# by species
+family.names = lookup[species.cols-16,]$family
+kingdom.names = lookup[species.cols-16,]$kingdom
+king.order = order(kingdom.names)
+cor.mat = cor(occurences[occurences$HMPBodySite=="Airways", species.cols[king.order]], method="spearman")
 cor.mat[upper.tri(cor.mat )] <- NA
 print(dim(cor.mat))
-# http://sebastianraschka.com/Articles/heatmaps_in_r.html
-png("cooccurence.png")
-heatmap.2(cor.mat)
-dev.off()
+cex=0.5
+heatmap.2(cor.mat, dendrogram='none', key=F, keysize=0, 
+          labRow=kingdom.names, labCol=kingdom.names, cexRow=cex, cexCol=cex)
 
-bodysite.order = order(occurences$HMPBodySite, occurences$HMPBodySubsite)
-occur.sub = occurences[bodysite.order,]
-cor.mat2=cor(t(occur.sub[,species.cols]), method="spearman")
 
-png("cooccurence by bodysite.png", units="in", width=12, height=12, res=300)
+#bodysite.order = order(occurences$HMPBodySite, occurences$HMPBodySubsite)
+family.names = lookup[species.cols-16,]$family
+kingdom.names = lookup[species.cols-16,]$kingdom
+king.order = order(kingdom.names)
+cor.mat = cor(occurences[occurences$HMPBodySite=="Airways", species.cols[king.order]], method="spearman")
+cor.mat[upper.tri(cor.mat )] <- NA
+print(dim(cor.mat))
+cex=0.5
+heatmap.2(cor.mat, dendrogram='none', key=F, keysize=0, 
+          labRow=kingdom.names, labCol=kingdom.names, cexRow=cex, cexCol=cex)
 
-image(x=1:ncol(cor.mat2), y=1:ncol(cor.mat2), z=cor.mat2, axes=F, xlab="", ylab="")
-site.ticks = c(79, 247, 1100, 2197, 2651)
-oral.ticks = c(85,256,426,598,760,923,1100,1270,1440)
-skin.ticks = c(76,240,405,573)
-site.labels = lapply(occur.sub$HMPBodySite[site.ticks], function(x) {stringr::str_sub(string=x, end=1)})
-oral.labels =  lapply(occur.sub$HMPBodySubsite[occur.sub$HMPBodySite=="Oral"][oral.ticks], function(x) {stringr::str_sub(string=x, end=3)})
-skin.labels =  lapply(occur.sub$HMPBodySubsite[occur.sub$HMPBodySite=="Skin"][skin.ticks], function(x) {stringr::str_sub(string=x, end=3)})
-skin.labels = c("LAF", "LRC", "RAF", "RAC")
 
-axis(1, at=site.ticks, labels=site.labels, cex=0.75)
-axis(4, at=site.ticks, labels=site.labels, cex=0.75)
-axis(3, at=oral.ticks+336, labels=oral.labels, cex=0.75)
-axis(3, at=skin.ticks+1865, labels=skin.labels, cex=0.75)
-
-color.legend(xl=-150,xr=-50, yb=ncol(cor.mat2)/4, yt=ncol(cor.mat2)*3/4, 
-             legend=seq(0,1), rect.col=heat.colors(256), cex=1, gradient='y')
-
-dev.off()
