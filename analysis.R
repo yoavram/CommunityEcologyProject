@@ -7,6 +7,7 @@ library(stringr)
 library(gplots)
 library(RColorBrewer)
 library(gridExtra)
+library(plotrix)
 
 # in hmp1.v13.hq.otu.counts, remove colname collection and add a new col name to the end (276...)
 # the result is .header
@@ -17,7 +18,7 @@ print(dim(occurences))
 
 # filter columns (species) - remove unclassified and uncounted
 lookup = read.csv(file="hmp1.v13.hq.otu.lookup.split", sep="\t")
-lookup.classified = subset(lookup, lookup$family!='unclassified')
+lookup.classified = subset(lookup, lookup$genus!='unclassified')
 occurences <- occurences[,lookup.classified$otu]
 print(dim(occurences))
 
@@ -203,21 +204,21 @@ q1 = qplot(x=MDS1, y=MDS2, data=species.df, alpha=frequency) +
 q1
 ggsave("species ordination.png", q1)
 
-### frequent kingdoms
-kingdom.df = ddply(species.df, .(kingdom), summarise, frequency=sum(frequency))
-freq.kingdoms = subset(kingdom.df, frequency > 0.0025)$kingdom
-q2 = qplot(x=MDS1, y=MDS2, data=subset(species.df, kingdom %in% freq.kingdoms), color=kingdom) +
-  scale_color_brewer(name="Kingdom", palette="Set1") + theme_bw() + theme(legend.position="top") #+ ggtitle("Species ordination (frequent kingdoms)")
+### frequent phylums
+phylum.df = ddply(species.df, .(phylum), summarise, frequency=sum(frequency))
+freq.phylums = subset(phylum.df, frequency > 0.0025)$phylum
+q2 = qplot(x=MDS1, y=MDS2, data=subset(species.df, phylum %in% freq.phylums), color=phylum) +
+  scale_color_brewer(name="Phylum", palette="Set1") + theme_bw() + theme(legend.position="top") #+ ggtitle("Species ordination (frequent phylums)")
 q2
-ggsave("species ordination - frequent kingdoms.png", q2)
+ggsave("species ordination - frequent phylums.png", q2)
 
 png("species ordination - 2 panels.png", units="in", width=7, height=14, res=300)
 grid.arrange(q1, q2, nrow=2)
 dev.off()
 
-qplot(x=kingdom, y=-log10(frequency), data=kingdom.df, geom="bar", stat="identity") + 
+qplot(x=phylum, y=-log10(frequency), data=phylum.df, geom="bar", stat="identity") + 
   theme(axis.text.x = element_text(size=12, angle = 45, hjust = 1))
-ggsave("kingdom frequencies.png")
+ggsave("phylum frequencies.png")
 
 # assembly rules
 ## nestedness
@@ -231,27 +232,29 @@ plot(nest, kind="incid")
 dev.off()
 
 ## co-occurence
-# by species
-family.names = lookup[species.cols-16,]$family
-kingdom.names = lookup[species.cols-16,]$kingdom
-king.order = order(kingdom.names)
-cor.mat = cor(occurences[occurences$HMPBodySite=="Airways", species.cols[king.order]], method="spearman")
-cor.mat[upper.tri(cor.mat )] <- NA
-print(dim(cor.mat))
-cex=0.5
-heatmap.2(cor.mat, dendrogram='none', key=F, keysize=0, 
-          labRow=kingdom.names, labCol=kingdom.names, cexRow=cex, cexCol=cex)
 
+bodysite.order = order(occurences$HMPBodySite, occurences$HMPBodySubsite)
+occur.sub = occurences[bodysite.order,]
+cor.mat=cor(t(occur.sub[,species.cols]), method="spearman")
 
-#bodysite.order = order(occurences$HMPBodySite, occurences$HMPBodySubsite)
-family.names = lookup[species.cols-16,]$family
-kingdom.names = lookup[species.cols-16,]$kingdom
-king.order = order(kingdom.names)
-cor.mat = cor(occurences[occurences$HMPBodySite=="Airways", species.cols[king.order]], method="spearman")
-cor.mat[upper.tri(cor.mat )] <- NA
-print(dim(cor.mat))
-cex=0.5
-heatmap.2(cor.mat, dendrogram='none', key=F, keysize=0, 
-          labRow=kingdom.names, labCol=kingdom.names, cexRow=cex, cexCol=cex)
+png("cooccurence by bodysite.png", units="in", width=12, height=12, res=300)
 
+image(x=1:ncol(cor.mat), y=1:ncol(cor.mat), z=cor.mat, axes=F, xlab="", ylab="")
+site.ticks = c(79, 247, 1100, 2197, 2651)
+oral.ticks = c(85,256,426,598,760,923,1100,1270,1440)
+skin.ticks = c(76,240,405,573)
+site.labels = lapply(occur.sub$HMPBodySite[site.ticks], function(x) {stringr::str_sub(string=x, end=1)})
+oral.labels =  lapply(occur.sub$HMPBodySubsite[occur.sub$HMPBodySite=="Oral"][oral.ticks], function(x) {stringr::str_sub(string=x, end=3)})
+skin.labels =  lapply(occur.sub$HMPBodySubsite[occur.sub$HMPBodySite=="Skin"][skin.ticks], function(x) {stringr::str_sub(string=x, end=3)})
+skin.labels = c("LAF", "LRC", "RAF", "RAC")
+
+axis(1, at=site.ticks, labels=site.labels, cex=0.75)
+axis(4, at=site.ticks, labels=site.labels, cex=0.75)
+axis(3, at=oral.ticks+336, labels=oral.labels, cex=0.75)
+axis(3, at=skin.ticks+1865, labels=skin.labels, cex=0.75)
+
+color.legend(xl=-150,xr=-50, yb=ncol(cor.mat)/4, yt=ncol(cor.mat)*3/4, 
+             legend=seq(0,1), rect.col=heat.colors(256), cex=1, gradient='y')
+
+dev.off()
 
