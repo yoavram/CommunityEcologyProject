@@ -7,6 +7,7 @@ library(stringr)
 library(gplots)
 library(RColorBrewer)
 library(gridExtra)
+library(plotrix)
 
 # in hmp1.v13.hq.otu.counts, remove colname collection and add a new col name to the end (276...)
 # the result is .header
@@ -17,7 +18,7 @@ print(dim(occurences))
 
 # filter columns (species) - remove unclassified and uncounted
 lookup = read.csv(file="hmp1.v13.hq.otu.lookup.split", sep="\t")
-lookup.classified = subset(lookup, lookup$family!='unclassified')
+lookup.classified = subset(lookup, lookup$genus!='unclassified')
 occurences <- occurences[,lookup.classified$otu]
 print(dim(occurences))
 
@@ -203,21 +204,21 @@ q1 = qplot(x=MDS1, y=MDS2, data=species.df, alpha=frequency) +
 q1
 ggsave("species ordination.png", q1)
 
-### frequent kingdoms
-kingdom.df = ddply(species.df, .(kingdom), summarise, frequency=sum(frequency))
-freq.kingdoms = subset(kingdom.df, frequency > 0.0025)$kingdom
-q2 = qplot(x=MDS1, y=MDS2, data=subset(species.df, kingdom %in% freq.kingdoms), color=kingdom) +
-  scale_color_brewer(name="Kingdom", palette="Set1") + theme_bw() + theme(legend.position="top") #+ ggtitle("Species ordination (frequent kingdoms)")
+### frequent phylums
+phylum.df = ddply(species.df, .(phylum), summarise, frequency=sum(frequency))
+freq.phylums = subset(phylum.df, frequency > 0.0025)$phylum
+q2 = qplot(x=MDS1, y=MDS2, data=subset(species.df, phylum %in% freq.phylums), color=phylum) +
+  scale_color_brewer(name="Phylum", palette="Set1") + theme_bw() + theme(legend.position="top") #+ ggtitle("Species ordination (frequent phylums)")
 q2
-ggsave("species ordination - frequent kingdoms.png", q2)
+ggsave("species ordination - frequent phylums.png", q2)
 
 png("species ordination - 2 panels.png", units="in", width=7, height=14, res=300)
 grid.arrange(q1, q2, nrow=2)
 dev.off()
 
-qplot(x=kingdom, y=-log10(frequency), data=kingdom.df, geom="bar", stat="identity") + 
+qplot(x=phylum, y=-log10(frequency), data=phylum.df, geom="bar", stat="identity") + 
   theme(axis.text.x = element_text(size=12, angle = 45, hjust = 1))
-ggsave("kingdom frequencies.png")
+ggsave("phylum frequencies.png")
 
 # assembly rules
 ## nestedness
@@ -231,22 +232,14 @@ plot(nest, kind="incid")
 dev.off()
 
 ## co-occurence
-bodysite.order = order(occurences$HMPBodySite, occurences$HMPBodySubsite)
-cor.mat = cor(t(occurences[bodysite.order, species.cols]), method="spearman")
-cor.mat[upper.tri(cor.mat )] <- NA
-print(dim(cor.mat))
-# http://sebastianraschka.com/Articles/heatmaps_in_r.html
-png("cooccurence.png")
-heatmap.2(cor.mat)
-dev.off()
 
 bodysite.order = order(occurences$HMPBodySite, occurences$HMPBodySubsite)
 occur.sub = occurences[bodysite.order,]
-cor.mat2=cor(t(occur.sub[,species.cols]), method="spearman")
+cor.mat=cor(t(occur.sub[,species.cols]), method="spearman")
 
 png("cooccurence by bodysite.png", units="in", width=12, height=12, res=300)
 
-image(x=1:ncol(cor.mat2), y=1:ncol(cor.mat2), z=cor.mat2, axes=F, xlab="", ylab="")
+image(x=1:ncol(cor.mat), y=1:ncol(cor.mat), z=cor.mat, axes=F, xlab="", ylab="")
 site.ticks = c(79, 247, 1100, 2197, 2651)
 oral.ticks = c(85,256,426,598,760,923,1100,1270,1440)
 skin.ticks = c(76,240,405,573)
@@ -260,7 +253,7 @@ axis(4, at=site.ticks, labels=site.labels, cex=0.75)
 axis(3, at=oral.ticks+336, labels=oral.labels, cex=0.75)
 axis(3, at=skin.ticks+1865, labels=skin.labels, cex=0.75)
 
-color.legend(xl=-150,xr=-50, yb=ncol(cor.mat2)/4, yt=ncol(cor.mat2)*3/4, 
+color.legend(xl=-150,xr=-50, yb=ncol(cor.mat)/4, yt=ncol(cor.mat)*3/4, 
              legend=seq(0,1), rect.col=heat.colors(256), cex=1, gradient='y')
 
 dev.off()
