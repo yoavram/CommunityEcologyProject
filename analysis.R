@@ -257,3 +257,16 @@ color.legend(xl=-150,xr=-50, yb=ncol(cor.mat)/4, yt=ncol(cor.mat)*3/4,
              legend=seq(0,1), rect.col=heat.colors(256), cex=1, gradient='y')
 
 dev.off()
+
+# by species
+taxa.order = order(lookup.classified$phylum, lookup.classified$class, lookup.classified$order, lookup.classified$family, lookup.classified$genus)
+otus.by.taxa = lookup.classified$otu[taxa.order]
+otus.by.taxa = unlist(lapply(otus.by.taxa, function(x) {paste0("X",x)}))
+otus.by.taxa = otus.by.taxa[otus.by.taxa %in% names(occurences)]
+occur.taxa = subset(occurences, select=otus.by.taxa)
+
+cor.mat.taxa = cor(occur.taxa, method="spearman")
+
+png("cooccurence by species.png")
+image(x=1:ncol(cor.mat.taxa), y=1:ncol(cor.mat.taxa), z=cor.mat.taxa, axes=F, xlab="", ylab="")
+dev.off()
