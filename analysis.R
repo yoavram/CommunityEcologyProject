@@ -264,9 +264,11 @@ otus.by.taxa = lookup.classified$otu[taxa.order]
 otus.by.taxa = unlist(lapply(otus.by.taxa, function(x) {paste0("X",x)}))
 otus.by.taxa = otus.by.taxa[otus.by.taxa %in% names(occurences)]
 occur.taxa = subset(occurences, select=otus.by.taxa)
+dim(occur.taxa)
+occur.taxa.binary = occur.taxa>0
 
-cor.mat.taxa = cor(occur.taxa, method="spearman")
+cor.mat.taxa = cor(occur.taxa.binary, method="spearman")
 
-png("cooccurence by species.png")
+png("cooccurence by species binary.png")
 image(x=1:ncol(cor.mat.taxa), y=1:ncol(cor.mat.taxa), z=cor.mat.taxa, axes=F, xlab="", ylab="")
 dev.off()
